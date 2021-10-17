@@ -1,0 +1,10 @@
+#’ @importFrom np b.star
+
+importFrom(MASS, ginv)
+importFrom(stats, cor)
+export(ISR)
+export(MMLPCA)
+export(MNIPALS)
+export(MRPCA)
+export(SR)
+export(mean)

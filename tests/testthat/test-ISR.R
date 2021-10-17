@@ -1,0 +1,69 @@
+test_that("ISR() obtains the estimators of the PCA-based missing data with HC", {
+library(MASS)      
+set.seed(88) 
+      etatol=0.9
+      n=100;p=10;per=0.1
+      mu=as.matrix(runif(p,0,10))
+      sigma=as.matrix(runif(p,0,1))
+      ro=as.matrix(c(runif(round(p/2),-1,-sqrt(0.75)),runif(p-round(p/2),sqrt(0.75),1)))
+      RO=ro%*%t(ro);diag(RO)=1
+      Sigma=sigma%*%t(sigma)*RO
+      X0=data=mvrnorm(n,mu,Sigma)
+      m=round(per*n*p,digits=0)
+      mr=sample(1:(n*p),m,replace=FALSE)
+      X0[mr]=NA;data0=X0
+      n=nrow(X0);p=ncol(X0)
+      mr=which(is.na(X0)==TRUE)
+      m=nrow(as.matrix(mr))
+      cm0=colMeans(X0,na.rm=T)
+      ina=as.matrix(mr%%n)
+      jna=as.matrix(floor((mr+n-1)/n))
+      data0[is.na(data0)]=cm0[ceiling(which(is.na(X0))/n)]	
+      X=as.matrix(data0)
+      Z=scale(X,center=TRUE,scale=FALSE)
+      niter=0;d=1;tol=1e-5;nb=10
+      while((d>=tol) & (niter<=nb)){#4
+        niter=niter+1
+        Zold=Z
+        lambda=svd(cor(Z))$d
+        l=lambda/sum(lambda)
+        J=rep(l,times=p);dim(J)=c(p,p)
+        upper.tri(J,diag=T);J[lower.tri(J)]=0
+        eta=matrix(colSums(J),nrow = 1,ncol = p,byrow = FALSE)
+        k=which(eta>=etatol)[1]
+        Ak=matrix(svd(Z)$v[,1:k],p,k)
+        Lambdak=diag(sqrt(lambda[1:k]),k,k)
+        for( i in 1:n){#5
+          M=is.na(X0[i,])
+          job=which(M==FALSE);jna=which(M==TRUE)
+          piob=nrow(as.matrix(job));pina=nrow(as.matrix(jna))
+          while((piob>0)&(pina>0)){#6
+            Qi=matrix(0,p,p)
+            for( u in 1:piob){#7
+              Qi[job[u],u]=1
+            }#7
+            for( v in 1:pina){#7
+              Qi[jna[v],v+piob]=1
+            }#7
+            zQi=Z[i,]%*%Qi
+            ZQi=Z%*%Qi#
+            AQi=t(t(Ak)%*%Qi)
+            ziob=matrix(zQi[,1:piob],1,piob)
+            zina=matrix(zQi[,piob+(1:pina)],1,pina)
+            Ziob=matrix(ZQi[,1:piob],n,piob,byrow=FALSE)
+            Zina=matrix(ZQi[,piob+(1:pina)],n,pina,byrow=FALSE)
+            Aiob=matrix(AQi[1:piob,],piob,k,byrow=FALSE)
+            Aina=matrix(AQi[piob+(1:pina),],pina,k,byrow=FALSE)
+            Ti=Ziob%*%Aiob;Ti
+            betaihat=ginv(t(Ti)%*%Ti)%*%t(Ti)%*%Zina;betaihat
+            zinahat=ziob%*%Aiob%*%betaihat;zinahat	
+            ZQi[i,piob+(1:pina)]=zinahat
+            Z=Zi=ZQi%*%t(Qi)
+            pina=0
+          }#6
+        }#5
+        ZISR=Znew=Z
+        d=sqrt(sum(diag((t(Zold-Znew)%*%(Zold-Znew)))))
+      }#4
+      XISR=Xnew=Znew+matrix(rep(1,n*p),ncol=p)%*%diag(cm0)
+})
